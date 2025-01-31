@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.GG Extension Wiki</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        p {
+            line-height: 1.6;
+        }
+        pre {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        ul {
+            list-style-type: disc;
+            margin-left: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .hljs {
+            background: #333;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+<body>
+    <div class="container">
+        <h1>Socket.GG Extension Wiki</h1>
+        <p>Welcome to the Socket.GG Extension Wiki! This page provides detailed information on how to use the Socket.GG extension for Scratch.</p>
+
+        <div class="section">
+            <h2>Introduction</h2>
+            <p>The Socket.GG extension allows you to connect to a signaling server, join rooms, send and receive messages and data streams, and handle events when messages or data are received in the current room.</p>
+        </div>
+
+        <div class="section">
+            <h2>Installation</h2>
+            <h3>Step 1: Set Up the Signaling Server</h3>
+            <p>First, you need to set up a signaling server using Node.js and Socket.IO. Here's a simple example:</p>
+            <pre class="hljs"><code class="language-javascript">
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const cors = require('cors');
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
+
+let messages = {};
+let dataStreams = {};
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    socket.on('joinRoom', (room) => {
+        console.log(`User ${socket.id} joined room: ${room}`);
+        socket.join(room);
+    });
+
+    socket.on('leaveRoom', (room) => {
+        console.log(`User ${socket.id} left room: ${room}`);
+        socket.leave(room);
+    });
+
+    socket.on('message', (data) => {
+        console.log('Received message:', data);
+        if (!messages[data.room]) {
+            messages[data.room] = [];
+        }
+        messages[data.room].push(data);
+        io.to(data.room).emit('message', data);
+    });
+
+    socket.on('dataStream', (data) => {
+        console.log('Received data stream:', data);
+        if (!dataStreams[data.room]) {
+            dataStreams[data.room] = [];
+        }
+        dataStreams[data.room].push(data);
+        io.to(data.room).emit('dataStream', data);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+        Object.keys(socket.rooms).forEach(room => {
+            if (room !== socket.id) {
+                console.log(`User ${socket.id} left room: ${room}`);
+                socket.leave(room);
+            }
+        });
+    });
+});
+
+server.listen(3000, () => {
+    console.log('Signaling server is running on port 3000');
+});
+            </code></pre>
+            <p>Save this code in a file named `server.js` and run it using Node.js:</p>
+            <pre class="hljs"><code class="language-bash">
+node server.js
+            </code></pre>
+
+            <h3>Step 2: Load the Extension in Scratch</h3>
+            <p>To load this extension in the Scratch editor, follow these steps:</p>
+            <ol>
+                <li>Open the Scratch editor (either locally or online).</li>
+                <li>Go to the "Extensions" tab.</li>
+                <li>Click on "Add Extension" and select "Pen" or any other extension to open the extension manager.</li>
+                <li>Click on "My Extensions" and then "Add Extension".</li>
+                <li>Enter the URL of the hosted `extension.js` file: <code>https://socket-gg.netlify.app/extension.js</code>.</li>
+                <li>Click "Import".</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Usage</h2>
+            <h3>Blocks</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Block Type</th>
+                        <th>Block Text</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Command</td>
+                        <td>connect to server [SERVER_URL]</td>
+                        <td>Connects to the signaling server at the specified URL.</td>
+                    </tr>
+                    <tr>
+                        <td>Command</td>
+                        <td>set user to [USER_ID]</td>
+                        <td>Sets the user identifier for the current session.</td>
+                    </tr>
+                    <tr>
+                        <td>Command</td>
+                        <td>join room [ROOM]</td>
+                        <td>Joins the specified room on the server.</td>
+                    </tr>
+                    <tr>
+                        <td>Command</td>
+                        <td>leave room [ROOM]</td>
+                        <td>Leaves the specified room on the server.</td>
+                    </tr>
+                    <tr>
+                        <td>Command</td>
+                        <td>send message [MESSAGE] to current room</td>
+                        <td>Sends a message to the current room.</td>
+                    </tr>
+                    <tr>
+                        <td>Command</td>
+                        <td>send data [DATA] to current room</td>
+                        <td>Sends data to the current room.</td>
+                    </tr>
+                    <tr>
+                        <td>Reporter</td>
+                        <td>get current message</td>
+                        <td>Returns the most recent message received from the current room.</td>
+                    </tr>
+                    <tr>
+                        <td>Reporter</td>
+                        <td>get all messages</td>
+                        <td>Returns all messages received from the current room.</td>
+                    </tr>
+                    <tr>
+                        <td>Reporter</td>
+                        <td>get current data</td>
+                        <td>Returns the most recent data received from the current room.</td>
+                    </tr>
+                    <tr>
+                        <td>Hat</td>
+                        <td>when message received in current room</td>
+                        <td>Triggers when a message is received in the current room.</td>
+                    </tr>
+                    <tr>
+                        <td>Hat</td>
+                        <td>when data received in current room</td>
+                        <td>Triggers when data is received in the current room.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Example Project</h3>
+            <p>Here’s a simple example of how you might use the blocks in a Scratch project:</p>
+            <ul>
+                <li>Set User to ()</li>
+                <ul>
+                    <li>Use the "set user to [USER_ID]" block to set a user identifier, e.g., "User1".</li>
+                </ul>
+                <li>Connect to Server</li>
+                <ul>
+                    <li>Use the "connect to server [SERVER_URL]" block to establish a connection to the server. For example, use <code>http://localhost:3000</code> as the server URL.</li>
+                </ul>
+                <li>Join Room</li>
+                <ul>
+                    <li>Use the "join room [ROOM]" block to join a specific room, e.g., "Room1".</li>
+                </ul>
+                <li>Send Message to Current Room</li>
+                <ul>
+                    <li>Use the "send message [MESSAGE] to current room" block to send a message to the current room.</li>
+                </ul>
+                <li>Send Data to Current Room</li>
+                <ul>
+                    <li>Use the "send data [DATA] to current room" block to send a data stream to the current room.</li>
+                </ul>
+                <li>Get Current Message</li>
+                <ul>
+                    <li>Use the "get current message" block to retrieve the most recent message received from the server.</li>
+                </ul>
+                <li>Get All Messages</li>
+                <ul>
+                    <li>Use the "get all messages" block to retrieve all messages received from the server.</li>
+                </ul>
+                <li>Get Current Data</li>
+                <ul>
+                    <li>Use the "get current data" block to retrieve the most recent data stream received from the server.</li>
+                </ul>
+                <li>Leave Room</li>
+                <ul>
+                    <li>Use the "leave room [ROOM]" block to leave a specific room.</li>
+                </ul>
+                <li>Event-Driven Blocks</li>
+                <ul>
+                    <li>Use the "when message received in current room" hat block to execute scripts when a message is received in the current room.</li>
+                    <li>Use the "when data received in current room" hat block to execute scripts when data is received in the current room.</li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Debugging Tips</h2>
+            <ul>
+                <li>Check Network Requests: Use the browser's developer tools (F12) to check network requests and ensure the Socket.IO library is being loaded correctly.</li>
+                <li>Console Logs: If you prefer to use <code>console.log</code> for debugging, you can open the browser's console to see detailed logs.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Example Script Using Event-Driven Blocks</h2>
+            <p>Here’s an example of how you might use the event-driven blocks in a Scratch project:</p>
+            <ol>
+                <li>When Green Flag Clicked</li>
+                <ul>
+                    <li>Use the "when green flag clicked" block to start the project.</li>
+                </ul>
+                <li>Set User to ()</li>
+                <ul>
+                    <li>Use the "set user to [USER_ID]" block to set a user identifier, e.g., "User1".</li>
+                </ul>
+                <li>Connect to Server</li>
+                <ul>
+                    <li>Use the "connect to server [SERVER_URL]" block to establish a connection to the server. For example, use <code>http://localhost:3000</code> as the server URL.</li>
+                </ul>
+                <li>Join Room</li>
+                <ul>
+                    <li>Use the "join room [ROOM]" block to join a specific room, e.g., "Room1".</li>
+                </ul>
+                <li>When Message Received in Current Room</li>
+                <ul>
+                    <li>Use the "when message received in current room" hat block.</li>
+                    <li>Inside this hat block, use the "get current message" block to retrieve the message and perform actions based on the message.</li>
+                </ul>
+                <li>When Data Received in Current Room</li>
+                <ul>
+                    <li>Use the "when data received in current room" hat block.</li>
+                    <li>Inside this hat block, use the "get current data" block to retrieve the data and perform actions based on the data.</li>
+                </ul>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
