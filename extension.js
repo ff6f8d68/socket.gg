@@ -30,7 +30,7 @@
                         arguments: {
                             SERVER_URL: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: 'http://localhost:2415'
+                                defaultValue: 'wss://socketio.derpygamer2142.com/'
                             }
                         }
                     },
