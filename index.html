@@ -78,7 +78,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Socket.GG Extension Wiki</h1>
+        <h1>Socket.GG Extension Wiki (we will soon be getting a server)</h1>
         <p>Welcome to the Socket.GG Extension Wiki! This page provides detailed information on how to use the Socket.GG extension for Scratch.</p>
 
         <div class="section">
@@ -91,6 +91,7 @@
             <h3>Step 1: Set Up the Signaling Server</h3>
             <p>First, you need to set up a signaling server using Node.js and Socket.IO. Here's a simple example:</p>
             <pre class="hljs"><code class="language-javascript">
+// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -107,7 +108,7 @@ const io = socketIo(server, {
 });
 
 let messages = {};
-let dataStreams = {};
+let privateMessages = {};
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -115,11 +116,16 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', (room) => {
         console.log(`User ${socket.id} joined room: ${room}`);
         socket.join(room);
+        socket.currentRoom = room;
+        io.to(room).emit('userJoined', { userId: socket.id });
+        socket.emit('chatHistory', { room, messages: messages[room] || [] });
     });
 
     socket.on('leaveRoom', (room) => {
         console.log(`User ${socket.id} left room: ${room}`);
         socket.leave(room);
+        delete socket.currentRoom;
+        io.to(room).emit('userLeft', { userId: socket.id });
     });
 
     socket.on('message', (data) => {
@@ -131,17 +137,26 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('message', data);
     });
 
-    socket.on('dataStream', (data) => {
-        console.log('Received data stream:', data);
-        if (!dataStreams[data.room]) {
-            dataStreams[data.room] = [];
-        }
-        dataStreams[data.room].push(data);
-        io.to(data.room).emit('dataStream', data);
+    socket.on('privateMessage', (data) => {
+        console.log('Received private message:', data);
+        io.to(data.toUserId).emit('privateMessage', data);
+    });
+
+    socket.on('fileTransfer', (data) => {
+        console.log('Received file transfer request:', data);
+        io.to(data.room).emit('fileTransferData', data);
+    });
+
+    socket.on('streamData', (data) => {
+        console.log('Received stream data:', data);
+        io.to(data.room).emit('streamData', data);
     });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+        if (socket.currentRoom) {
+            io.to(socket.currentRoom).emit('userLeft', { userId: socket.id });
+        }
         Object.keys(socket.rooms).forEach(room => {
             if (room !== socket.id) {
                 console.log(`User ${socket.id} left room: ${room}`);
@@ -151,8 +166,8 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => {
-    console.log('Signaling server is running on port 3000');
+server.listen(2415, () => {
+    console.log('Signaling server is running on port 2415');
 });
             </code></pre>
             <p>Save this code in a file named `server.js` and run it using Node.js:</p>
