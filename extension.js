@@ -8,11 +8,14 @@
             this.currentMessage = null;
             this.allMessages = [];
             this.currentData = null;
+            this.currentStreamData = null;
             this.userId = 'defaultUser';
             this.isConnected = false;
             this.currentRoom = null;
             this.messageEventListeners = [];
-            this.dataEventListeners = [];
+            this.privateMessageEventListeners = [];
+            this.fileTransferDataEventListeners = [];
+            this.streamDataEventListeners = [];
         }
 
         getInfo() {
@@ -27,7 +30,7 @@
                         arguments: {
                             SERVER_URL: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: 'http://localhost:3000'
+                                defaultValue: 'http://localhost:2415'
                             }
                         }
                     },
@@ -76,13 +79,54 @@
                         }
                     },
                     {
-                        opcode: 'sendData',
+                        opcode: 'sendPrivateMessage',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'send data [DATA] to current room',
+                        text: 'send private message [MESSAGE] to user [USER_ID]',
+                        arguments: {
+                            MESSAGE: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: 'Hello, private user!'
+                            },
+                            USER_ID: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: 'otherUser'
+                            }
+                        }
+                    },
+                    {
+                        opcode: 'requestFileTransferInRoom',
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: 'send file [FILE_CONTENT_BASE64] in current room',
+                        arguments: {
+                            FILE_CONTENT_BASE64: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: 'your_base64_encoded_file_content'
+                            }
+                        }
+                    },
+                    {
+                        opcode: 'requestFileTransferToUser',
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: 'send file [FILE_CONTENT_BASE64] to user [USER_ID]',
+                        arguments: {
+                            FILE_CONTENT_BASE64: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: 'your_base64_encoded_file_content'
+                            },
+                            USER_ID: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: 'otherUser'
+                            }
+                        }
+                    },
+                    {
+                        opcode: 'sendStreamData',
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: 'stream data [DATA] in current room',
                         arguments: {
                             DATA: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: 'Some data'
+                                defaultValue: 'your_stream_data'
                             }
                         }
                     },
@@ -102,14 +146,29 @@
                         text: 'get current data'
                     },
                     {
+                        opcode: 'getCurrentStreamData',
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: 'get current stream data'
+                    },
+                    {
                         opcode: 'whenMessageReceivedInCurrentRoom',
                         blockType: Scratch.BlockType.HAT,
                         text: 'when message received in current room'
                     },
                     {
-                        opcode: 'whenDataReceivedInCurrentRoom',
+                        opcode: 'whenPrivateMessageReceived',
                         blockType: Scratch.BlockType.HAT,
-                        text: 'when data received in current room'
+                        text: 'when private message received'
+                    },
+                    {
+                        opcode: 'whenFileTransferDataReceived',
+                        blockType: Scratch.BlockType.HAT,
+                        text: 'when file transfer data received'
+                    },
+                    {
+                        opcode: 'whenStreamDataReceived',
+                        blockType: Scratch.BlockType.HAT,
+                        text: 'when stream data received'
                     }
                 ]
             };
@@ -132,19 +191,28 @@
 
                 this.socket.on('message', (data) => {
                     if (data.room === this.currentRoom) {
-                        alert('Received message from server: ' + JSON.stringify(data));
+                        console.log('Received message from server:', data);
                         this.currentMessage = data;
                         this.allMessages.push(data);
                         this.triggerMessageEvent(data);
                     }
                 });
 
-                this.socket.on('dataStream', (data) => {
-                    if (data.room === this.currentRoom) {
-                        alert('Received data stream from server: ' + JSON.stringify(data));
-                        this.currentData = data.data;
-                        this.triggerDataEvent(data);
-                    }
+                this.socket.on('privateMessage', (data) => {
+                    console.log('Received private message from server:', data);
+                    this.triggerPrivateMessageEvent(data);
+                });
+
+                this.socket.on('fileTransferData', (data) => {
+                    console.log('File transfer data received from server:', data);
+                    this.currentData = data.data;
+                    this.triggerFileTransferDataEvent(data);
+                });
+
+                this.socket.on('streamData', (data) => {
+                    console.log('Stream data received from server:', data);
+                    this.currentStreamData = data.data;
+                    this.triggerStreamDataEvent(data);
                 });
 
                 this.socket.on('disconnect', () => {
@@ -218,9 +286,33 @@
             }
         }
 
-        sendData(args) {
+        sendPrivateMessage(args) {
+            if (this.isConnected) {
+                this.socket.emit('privateMessage', { fromUserId: this.userId, toUserId: args.USER_ID, message: args.MESSAGE });
+            } else {
+                alert('Not connected to signaling server');
+            }
+        }
+
+        requestFileTransferInRoom(args) {
             if (this.isConnected && this.currentRoom) {
-                this.socket.emit('dataStream', { user: this.userId, data: args.DATA, room: this.currentRoom });
+                this.socket.emit('fileTransfer', { fromUserId: this.userId, toUserId: '*', data: args.FILE_CONTENT_BASE64, room: this.currentRoom });
+            } else {
+                alert('Not connected to signaling server or not in a room');
+            }
+        }
+
+        requestFileTransferToUser(args) {
+            if (this.isConnected) {
+                this.socket.emit('fileTransfer', { fromUserId: this.userId, toUserId: args.USER_ID, data: args.FILE_CONTENT_BASE64 });
+            } else {
+                alert('Not connected to signaling server');
+            }
+        }
+
+        sendStreamData(args) {
+            if (this.isConnected && this.currentRoom) {
+                this.socket.emit('streamData', { fromUserId: this.userId, data: args.DATA, room: this.currentRoom });
             } else {
                 alert('Not connected to signaling server or not in a room');
             }
@@ -238,11 +330,23 @@
             return this.currentData || '';
         }
 
+        getCurrentStreamData() {
+            return this.currentStreamData || '';
+        }
+
         whenMessageReceivedInCurrentRoom() {
             return {};
         }
 
-        whenDataReceivedInCurrentRoom() {
+        whenPrivateMessageReceived() {
+            return {};
+        }
+
+        whenFileTransferDataReceived() {
+            return {};
+        }
+
+        whenStreamDataReceived() {
             return {};
         }
 
@@ -250,16 +354,32 @@
             this.messageEventListeners.forEach(listener => listener(data));
         }
 
-        triggerDataEvent(data) {
-            this.dataEventListeners.forEach(listener => listener(data));
+        triggerPrivateMessageEvent(data) {
+            this.privateMessageEventListeners.forEach(listener => listener(data));
+        }
+
+        triggerFileTransferDataEvent(data) {
+            this.fileTransferDataEventListeners.forEach(listener => listener(data));
+        }
+
+        triggerStreamDataEvent(data) {
+            this.streamDataEventListeners.forEach(listener => listener(data));
         }
 
         handleMessageEvent(hat) {
             this.messageEventListeners.push(hat);
         }
 
-        handleDataEvent(hat) {
-            this.dataEventListeners.push(hat);
+        handlePrivateMessageEvent(hat) {
+            this.privateMessageEventListeners.push(hat);
+        }
+
+        handleFileTransferDataEvent(hat) {
+            this.fileTransferDataEventListeners.push(hat);
+        }
+
+        handleStreamDataEvent(hat) {
+            this.streamDataEventListeners.push(hat);
         }
     }
 
