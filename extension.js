@@ -149,26 +149,6 @@
                         opcode: 'getCurrentStreamData',
                         blockType: Scratch.BlockType.REPORTER,
                         text: 'get current stream data'
-                    },
-                    {
-                        opcode: 'whenMessageReceivedInCurrentRoom',
-                        blockType: Scratch.BlockType.HAT,
-                        text: 'when message received in current room'
-                    },
-                    {
-                        opcode: 'whenPrivateMessageReceived',
-                        blockType: Scratch.BlockType.HAT,
-                        text: 'when private message received'
-                    },
-                    {
-                        opcode: 'whenFileTransferDataReceived',
-                        blockType: Scratch.BlockType.HAT,
-                        text: 'when file transfer data received'
-                    },
-                    {
-                        opcode: 'whenStreamDataReceived',
-                        blockType: Scratch.BlockType.HAT,
-                        text: 'when stream data received'
                     }
                 ]
             };
