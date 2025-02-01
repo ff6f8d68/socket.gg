@@ -8,14 +8,14 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: '*', // Allow all origins for simplicity; you can restrict this to specific origins if needed
+        origin: '*',
         methods: ['GET', 'POST'],
         credentials: true
     }
 });
 
 let messages = {};
-let dataStreams = {};
+let privateMessages = {};
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -23,11 +23,16 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', (room) => {
         console.log(`User ${socket.id} joined room: ${room}`);
         socket.join(room);
+        socket.currentRoom = room;
+        io.to(room).emit('userJoined', { userId: socket.id });
+        socket.emit('chatHistory', { room, messages: messages[room] || [] });
     });
 
     socket.on('leaveRoom', (room) => {
         console.log(`User ${socket.id} left room: ${room}`);
         socket.leave(room);
+        delete socket.currentRoom;
+        io.to(room).emit('userLeft', { userId: socket.id });
     });
 
     socket.on('message', (data) => {
@@ -39,18 +44,26 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('message', data);
     });
 
-    socket.on('dataStream', (data) => {
-        console.log('Received data stream:', data);
-        if (!dataStreams[data.room]) {
-            dataStreams[data.room] = [];
-        }
-        dataStreams[data.room].push(data);
-        io.to(data.room).emit('dataStream', data);
+    socket.on('privateMessage', (data) => {
+        console.log('Received private message:', data);
+        io.to(data.toUserId).emit('privateMessage', data);
+    });
+
+    socket.on('fileTransfer', (data) => {
+        console.log('Received file transfer request:', data);
+        io.to(data.room).emit('fileTransferData', data);
+    });
+
+    socket.on('streamData', (data) => {
+        console.log('Received stream data:', data);
+        io.to(data.room).emit('streamData', data);
     });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Remove user from all rooms
+        if (socket.currentRoom) {
+            io.to(socket.currentRoom).emit('userLeft', { userId: socket.id });
+        }
         Object.keys(socket.rooms).forEach(room => {
             if (room !== socket.id) {
                 console.log(`User ${socket.id} left room: ${room}`);
@@ -60,6 +73,6 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => {
-    console.log('Signaling server is running on port 3000');
+server.listen(2415, () => {
+    console.log('Signaling server is running on port 2415');
 });
